@@ -58,9 +58,6 @@ Verificar se o mosquitto já existe na máquina, se Sim pare o serviço:
 sudo systemctl status mosquitto
 sudo systemctl stop mosquitto
 ```
-
-O projeto usa cinco contêineres. A porta `8123` do Home Assistant é publicada apenas em `127.0.0.1` (acesso no computador Docker). A porta `1884/udp` do gateway também é publicada somente no loopback local. **A porta 1883 do Mosquitto não é exposta no host:** os outros contêineres se conectam a `mosquitto:1883` dentro da rede Docker, evitando conflito com um Mosquitto já instalado no Ubuntu. Não use `localhost` como host MQTT dentro do Home Assistant.
-
 ## Passo 2 — Subir o ambiente
 
 Na pasta que contém `compose.yaml`:
@@ -137,8 +134,6 @@ Os valores são retidos no broker; assim, três publicações em `iot/#` geralme
 3. Confirme que a descoberta MQTT (MQTT Discovery) está habilitada.
 4. Acesse o MQTT e a aba de Sensores.
 
-O gateway publica `homeassistant/sensor/lab_mqttsn_temperatura/config`, `homeassistant/sensor/lab_mqttsn_umidade/config` e `homeassistant/binary_sensor/lab_mqttsn_presenca/config` como mensagens MQTT retidas. Publica também `iot/sala/status = online` enquanto conectado ao broker. Por isso, as entidades são descobertas mesmo que o Home Assistant seja reiniciado depois.
-
 ## Passo 5 — Testes e evidências
 
 Comandos para análise de Resultados:
@@ -152,10 +147,13 @@ docker compose exec mosquitto mosquitto_sub -h 127.0.0.1 -t 'iot/sala/presença'
 
 Analisar no Wireshark as mensagens:
 
-***Filtro: udp.port == 1884 or tcp.port == 1883 or tcp.port == 8123***
+Filtro: 
+
+***udp.port == 1884 or tcp.port == 1883 or tcp.port == 8123***
 
 ***Ver mensagens MQTT-SN:***
-1 - Acessar a aba superior com o nome ***Analyze***.
-2 - Acessar a aba ***Decode as***.
-3 - Adicionar o filtro ***Field(udp port) - Port(1884) - Current(MQTT-SN)*** 
+
+1. Acessar a aba superior com o nome ***Analyze***.
+2. Acessar a aba ***Decode as***.
+3. Adicionar o filtro ***Field(udp port) - Port(1884) - Current(MQTT-SN)*** 
 
