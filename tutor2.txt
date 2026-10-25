@@ -1,0 +1,804 @@
+# Tutorial de Instalação e Execução do Laboratório IoT
+
+Este tutorial apresenta os procedimentos para instalar, configurar, executar e monitorar o laboratório IoT utilizando **Docker, MQTT-SN, MQTT, Mosquitto e Home Assistant**.
+
+O ambiente simula três sensores: temperatura, umidade e presença. Os dados são enviados utilizando MQTT-SN sobre UDP, recebidos por um gateway e encaminhados ao broker Mosquitto utilizando MQTT sobre TCP.
+
+Ao final, também será apresentada uma atividade extra para adicionar um quarto sensor, responsável por simular a pressão atmosférica.
+
+---
+
+# 1. Instalação e configuração do ambiente
+
+## 1.1. Clonar o repositório
+
+Primeiro, clone o repositório do projeto:
+
+```bash
+git clone https://github.com/pedro-rodriguesalves/atividade-homeassistant.git
+```
+
+Acesse o diretório que contém o arquivo `compose.yaml`:
+
+```bash
+cd atividade-homeassistant/projeto-iot-mqttsn-3-sensores/iot-mqttsn-homeassistant
+```
+
+Todos os comandos `docker compose` apresentados a seguir devem ser executados nesse diretório.
+
+## 1.2. Verificar a instalação do Docker
+
+Verifique se o Docker está instalado:
+
+```bash
+docker --version
+```
+
+Verifique se o Docker Compose está disponível:
+
+```bash
+docker compose version
+```
+
+Caso algum dos comandos não funcione, será necessário instalar o Docker Engine e o plugin Docker Compose antes de continuar.
+
+Também verifique se o serviço Docker está em execução:
+
+```bash
+sudo systemctl status docker
+```
+
+Se necessário, inicie o serviço:
+
+```bash
+sudo systemctl start docker
+```
+
+## 1.3. Verificar o Mosquitto instalado no Ubuntu
+
+Verifique se existe uma instalação do Mosquitto em execução diretamente no sistema operacional:
+
+```bash
+sudo systemctl status mosquitto
+```
+
+Caso seja necessário interromper essa instância, execute:
+
+```bash
+sudo systemctl stop mosquitto
+```
+
+**Observação:** o laboratório utiliza seu próprio Mosquitto em um contêiner Docker. Como o `compose.yaml` não publica a porta TCP 1883 no host, normalmente não é necessário interromper o Mosquitto instalado no Ubuntu. Esse procedimento é opcional e pode facilitar a identificação do broker utilizado nos testes.
+
+---
+
+# 2. Inicialização do laboratório
+
+## 2.1. Verificar a configuração do Docker Compose
+
+Antes de iniciar os contêineres, verifique se o arquivo `compose.yaml` está correto:
+
+```bash
+docker compose config
+```
+
+Esse comando valida a configuração dos serviços.
+
+## 2.2. Iniciar os contêineres
+
+Execute:
+
+```bash
+docker compose up -d --build
+```
+
+O comando realiza as seguintes operações:
+
+- Constrói as imagens Docker do publisher e do gateway.
+- Cria os contêineres necessários.
+- Configura a comunicação entre os serviços.
+- Inicia os componentes em segundo plano.
+
+## 2.3. Verificar os contêineres
+
+Execute:
+
+```bash
+docker compose ps
+```
+
+Os cinco serviços esperados são:
+
+| Serviço | Função |
+|---|---|
+| `publisher` | Simula os sensores e publica mensagens MQTT-SN. |
+| `gateway` | Recebe MQTT-SN e encaminha os dados utilizando MQTT. |
+| `mosquitto` | Broker responsável pela distribuição das mensagens MQTT. |
+| `subscriber` | Cliente MQTT utilizado para visualizar as mensagens. |
+| `homeassistant` | Plataforma utilizada para monitorar os sensores. |
+
+---
+
+# 3. Configuração do Home Assistant
+
+## 3.1. Acessar a interface web
+
+Abra o navegador do computador que está executando o Docker e acesse:
+
+```text
+http://localhost:8123
+```
+
+Na primeira execução, realize a configuração inicial do Home Assistant.
+
+## 3.2. Adicionar a integração MQTT
+
+No Home Assistant:
+
+1. Acesse **Configurações**.
+2. Entre em **Dispositivos e serviços**.
+3. Selecione **Adicionar integração**.
+4. Pesquise por **MQTT**.
+5. Configure a conexão com o broker Mosquitto.
+
+Utilize:
+
+| Configuração | Valor |
+|---|---|
+| Broker | `mosquitto` |
+| Porta | `1883` |
+| Usuário | Não utilizado |
+| Senha | Não utilizada |
+
+**Observação:** o acesso sem autenticação é utilizado apenas para fins de laboratório.
+
+## 3.3. Verificar os sensores
+
+Confirme que a descoberta automática MQTT (*MQTT Discovery*) está habilitada.
+
+Depois, acesse a integração MQTT e verifique as entidades dos sensores.
+
+Inicialmente, deverão existir três entidades:
+
+| Sensor | Unidade ou estado |
+|---|---|
+| Temperatura | °C |
+| Umidade | % |
+| Presença | ON/OFF |
+
+Os valores são simulados pelo `publisher.py` e atualizados periodicamente.
+
+---
+
+# 4. Monitoramento das mensagens
+
+Esta etapa permite verificar o funcionamento dos principais componentes do laboratório.
+
+## 4.1. Verificar as mensagens do publisher
+
+Execute:
+
+```bash
+docker compose logs -f publisher
+```
+
+Esse comando apresenta as mensagens produzidas pelo cliente MQTT-SN.
+
+Exemplo de saída esperada:
+
+```text
+REGACK aceito topico=iot/sala/temperatura topicId=1
+REGACK aceito topico=iot/sala/umidade topicId=2
+REGACK aceito topico=iot/sala/presenca topicId=3
+
+PUBLISH MQTT-SN topico=iot/sala/temperatura valor=23.0 °C
+PUBLISH MQTT-SN topico=iot/sala/umidade valor=45 %
+PUBLISH MQTT-SN topico=iot/sala/presenca valor=ON
+```
+
+O publisher estabelece uma sessão MQTT-SN, registra os tópicos e publica os valores dos sensores a cada três segundos.
+
+## 4.2. Verificar as mensagens do gateway
+
+Execute:
+
+```bash
+docker compose logs -f gateway
+```
+
+Esse comando permite acompanhar o recebimento das mensagens MQTT-SN e seu encaminhamento ao broker MQTT.
+
+Exemplo:
+
+```text
+PUBLISH MQTT-SN -> MQTT topico=iot/sala/temperatura mensagem=23.0
+PUBLISH MQTT-SN -> MQTT topico=iot/sala/umidade mensagem=45
+PUBLISH MQTT-SN -> MQTT topico=iot/sala/presenca mensagem=ON
+```
+
+O gateway recebe os datagramas UDP, identifica os tópicos registrados e publica os dados utilizando MQTT.
+
+## 4.3. Verificar o subscriber
+
+Execute:
+
+```bash
+docker compose logs -f subscriber
+```
+
+O subscriber está inscrito em:
+
+```text
+iot/#
+```
+
+Esse filtro permite receber todos os tópicos abaixo de `iot/`.
+
+Exemplo:
+
+```text
+iot/sala/temperatura 23.0
+iot/sala/umidade 45
+iot/sala/presenca ON
+```
+
+## 4.4. Verificar as mensagens diretamente no Mosquitto
+
+Para acompanhar todos os tópicos dos sensores:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 -t 'iot/#' -v
+```
+
+Para acompanhar somente o sensor de presença:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 -t 'iot/sala/presenca' -v
+```
+
+Para acompanhar somente a temperatura:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 -t 'iot/sala/temperatura' -v
+```
+
+Para interromper o acompanhamento das mensagens, utilize `Ctrl+C`.
+
+---
+
+# 5. Análise de pacotes no Wireshark
+
+O Wireshark pode ser utilizado para observar a comunicação entre os componentes do laboratório.
+
+## 5.1. Protocolos utilizados
+
+| Comunicação | Protocolo | Porta |
+|---|---|---|
+| Publisher → Gateway | MQTT-SN sobre UDP | 1884 |
+| Gateway → Mosquitto | MQTT sobre TCP | 1883 |
+| Navegador → Home Assistant | HTTP sobre TCP | 8123 |
+
+## 5.2. Capturar os pacotes
+
+Abra o Wireshark e selecione a interface de rede utilizada pela comunicação Docker.
+
+Em ambientes Linux, essa interface pode ser uma ponte de rede Docker.
+
+Para visualizar as interfaces disponíveis:
+
+```bash
+ip -br addr
+```
+
+Para capturar todo o tráfego das portas relacionadas ao laboratório, utilize o filtro de exibição:
+
+```wireshark
+udp.port == 1884 or tcp.port == 1883 or tcp.port == 8123
+```
+
+Para visualizar somente o tráfego MQTT-SN:
+
+```wireshark
+udp.port == 1884
+```
+
+Para visualizar somente o tráfego MQTT:
+
+```wireshark
+tcp.port == 1883
+```
+
+**Observação:** um filtro de exibição não captura pacotes de outras interfaces. É necessário selecionar a interface por onde o tráfego realmente passa.
+
+## 5.3. Decodificar as mensagens MQTT-SN
+
+Caso os pacotes apareçam somente como UDP, configure manualmente a decodificação:
+
+1. Acesse o menu **Analyze**.
+2. Selecione **Decode As...**.
+3. Adicione uma regra de decodificação.
+4. No campo **Field**, selecione `UDP port`.
+5. No campo **Port**, informe `1884`.
+6. No campo **Current**, selecione `MQTT-SN`, caso esteja disponível.
+7. Confirme a configuração.
+
+Após a decodificação, o Wireshark poderá identificar mensagens como:
+
+```text
+MQTT-SN CONNECT
+MQTT-SN CONNACK
+MQTT-SN REGISTER
+MQTT-SN REGACK
+MQTT-SN PUBLISH
+```
+
+Também será possível analisar os campos presentes nas mensagens.
+
+Por exemplo:
+
+```text
+MQTT-SN PUBLISH
+    Length
+    MsgType
+    Flags
+    TopicId
+    MsgId
+    Data
+```
+
+A opção MQTT-SN depende da disponibilidade do decodificador na instalação do Wireshark.
+
+---
+
+# 6. Atividade extra — Adicionar um sensor de pressão atmosférica
+
+Nesta atividade, será adicionado um quarto sensor ao laboratório, responsável por simular valores de pressão atmosférica.
+
+O novo sensor utilizará:
+
+| Propriedade | Valor |
+|---|---|
+| Sensor | Pressão atmosférica |
+| Tópico | `iot/sala/pressao` |
+| Unidade | hPa |
+| Protocolo | MQTT-SN sobre UDP |
+| Intervalo | 3 segundos |
+
+Para realizar a integração, serão modificados quatro arquivos:
+
+1. `compose.yaml`
+2. `publisher/publisher.py`
+3. `gateway/gateway.ini`
+4. `gateway/gateway.py`
+
+## 6.1. Modificar o arquivo `compose.yaml`
+
+Abra o arquivo:
+
+```bash
+nano compose.yaml
+```
+
+Localize o serviço `publisher` e suas variáveis de ambiente:
+
+```yaml
+environment:
+  GATEWAY_HOST: gateway
+  GATEWAY_PORT: "1884"
+  CLIENT_ID: sensores-sala-01
+  MQTT_TOPIC: iot/sala/temperatura
+  HUMIDITY_TOPIC: iot/sala/umidade
+  PRESENCE_TOPIC: iot/sala/presenca
+  INTERVAL: "3"
+  COUNT: "0"
+```
+
+Adicione a variável:
+
+```yaml
+PRESSURE_TOPIC: iot/sala/pressao
+```
+
+O resultado será:
+
+```yaml
+environment:
+  GATEWAY_HOST: gateway
+  GATEWAY_PORT: "1884"
+  CLIENT_ID: sensores-sala-01
+  MQTT_TOPIC: iot/sala/temperatura
+  HUMIDITY_TOPIC: iot/sala/umidade
+  PRESENCE_TOPIC: iot/sala/presenca
+  PRESSURE_TOPIC: iot/sala/pressao
+  INTERVAL: "3"
+  COUNT: "0"
+```
+
+Essa variável define o tópico utilizado para transmitir os valores de pressão atmosférica.
+
+## 6.2. Modificar o arquivo `publisher/publisher.py`
+
+Abra:
+
+```bash
+nano publisher/publisher.py
+```
+
+Localize a função:
+
+```python
+def run() -> None:
+```
+
+### Etapa 1 — Registrar o tópico
+
+Procure:
+
+```python
+temp_topic = os.getenv("MQTT_TOPIC", "iot/sala/temperatura")
+humidity_topic = os.getenv("HUMIDITY_TOPIC", "iot/sala/umidade")
+presence_topic = os.getenv("PRESENCE_TOPIC", "iot/sala/presenca")
+
+topics = [temp_topic, humidity_topic, presence_topic]
+```
+
+Substitua por:
+
+```python
+temp_topic = os.getenv("MQTT_TOPIC", "iot/sala/temperatura")
+humidity_topic = os.getenv("HUMIDITY_TOPIC", "iot/sala/umidade")
+presence_topic = os.getenv("PRESENCE_TOPIC", "iot/sala/presenca")
+pressure_topic = os.getenv("PRESSURE_TOPIC", "iot/sala/pressao")
+
+topics = [
+    temp_topic,
+    humidity_topic,
+    presence_topic,
+    pressure_topic
+]
+```
+
+Agora o publisher registrará quatro tópicos MQTT-SN.
+
+### Etapa 2 — Atualizar a validação
+
+Localize:
+
+```python
+if len(set(topics)) != len(topics):
+    raise ValueError("Os tres topicos MQTT-SN devem ser diferentes")
+```
+
+Substitua por:
+
+```python
+if len(set(topics)) != len(topics):
+    raise ValueError("Os topicos MQTT-SN devem ser diferentes")
+```
+
+Essa validação impede que dois sensores utilizem o mesmo tópico.
+
+### Etapa 3 — Simular a pressão atmosférica
+
+Localize a parte do código responsável por gerar os valores dos sensores:
+
+```python
+temperature = 23.0 + 0.3 * (seq % 14)
+humidity = 45 + (seq * 3) % 30
+presence = "ON" if seq % 8 < 3 else "OFF"
+```
+
+Adicione:
+
+```python
+pressure = 1005.0 + 0.8 * (seq % 12)
+```
+
+O resultado será:
+
+```python
+temperature = 23.0 + 0.3 * (seq % 14)
+humidity = 45 + (seq * 3) % 30
+presence = "ON" if seq % 8 < 3 else "OFF"
+pressure = 1005.0 + 0.8 * (seq % 12)
+```
+
+A variável `pressure` simula valores entre 1005,0 e 1013,8 hPa.
+
+### Etapa 4 — Publicar o novo sensor
+
+Localize as chamadas existentes da função `send_value()`.
+
+Após a publicação do sensor de presença, adicione:
+
+```python
+send_value(
+    sock,
+    address,
+    pressure_topic,
+    topic_ids[pressure_topic],
+    f"{pressure:.1f}",
+    " hPa"
+)
+```
+
+Essa função enviará uma mensagem MQTT-SN contendo o valor simulado da pressão atmosférica.
+
+O tópico deverá ter sido registrado anteriormente para que o publisher possua seu `TopicId`.
+
+### Etapa 5 — Atualizar a contagem de publicações
+
+No final da função `run()`, localize o registro da quantidade de publicações.
+
+Substitua a contagem fixa por:
+
+```python
+LOG.info(
+    "Publisher finalizado; ciclos=%s; publicacoes=%s",
+    seq,
+    seq * len(topics)
+)
+```
+
+Dessa maneira, o programa calculará automaticamente a quantidade de publicações com base no número de sensores.
+
+---
+
+## 6.3. Modificar o arquivo `gateway/gateway.ini`
+
+Abra:
+
+```bash
+nano gateway/gateway.ini
+```
+
+Na seção `[mqtt]`, adicione:
+
+```ini
+pressure_state_topic = iot/sala/pressao
+```
+
+Esse campo identifica o tópico MQTT que receberá os valores de pressão atmosférica.
+
+Também adicione:
+
+```ini
+pressure_discovery_topic = homeassistant/sensor/lab_mqttsn_pressao/config
+```
+
+Esse campo identifica o tópico utilizado para anunciar a nova entidade ao Home Assistant.
+
+Não será necessário modificar a seção `[mqttsn]`, pois o prefixo `iot/` já permite o registro do novo tópico.
+
+---
+
+## 6.4. Modificar o arquivo `gateway/gateway.py`
+
+Abra:
+
+```bash
+nano gateway/gateway.py
+```
+
+Localize a função:
+
+```python
+def mqtt_on_connect(self, client, userdata, flags, reason_code, properties):
+```
+
+Dentro dessa função, procure a lista:
+
+```python
+entities = [
+```
+
+Essa lista contém as configurações utilizadas pelo MQTT Discovery.
+
+### Etapa 1 — Adicionar o sensor
+
+Após a configuração do sensor de presença e antes do fechamento da lista, adicione:
+
+```python
+(
+    mqtt_cfg["pressure_discovery_topic"],
+    {
+        "name": "Pressão Atmosférica MQTT-SN",
+        "unique_id": "laboratorio_pressao_mqttsn_01",
+        "state_topic": mqtt_cfg["pressure_state_topic"],
+        "device_class": "atmospheric_pressure",
+        "state_class": "measurement",
+        "unit_of_measurement": "hPa",
+    },
+),
+```
+
+Os principais campos são:
+
+| Campo | Função |
+|---|---|
+| `name` | Nome apresentado no Home Assistant. |
+| `unique_id` | Identificador exclusivo da entidade. |
+| `state_topic` | Tópico MQTT utilizado para receber o valor. |
+| `device_class` | Classifica o sensor como pressão atmosférica. |
+| `state_class` | Identifica os valores como medições. |
+| `unit_of_measurement` | Define a unidade hPa. |
+
+### Etapa 2 — Atualizar o log
+
+Localize a mensagem de log que informa a publicação das configurações MQTT Discovery.
+
+Substitua por:
+
+```python
+LOG.info(
+    "MQTT conectado. Discovery de temperatura, "
+    "umidade, presenca e pressao publicado"
+)
+```
+
+Com isso, o gateway passará a anunciar quatro entidades ao Home Assistant.
+
+---
+
+# 7. Aplicar as alterações
+
+Após salvar os arquivos, valide o `compose.yaml`:
+
+```bash
+docker compose config
+```
+
+Em seguida, reconstrua e recrie o publisher e o gateway:
+
+```bash
+docker compose up -d --build --force-recreate gateway publisher
+```
+
+**Observação:** esse comando também pode ser utilizado quando o cenário antigo ainda estiver em execução. Não é necessário recriar o Mosquitto ou o Home Assistant para aplicar essas alterações.
+
+---
+
+# 8. Validar o novo sensor
+
+## 8.1. Verificar o publisher
+
+Execute:
+
+```bash
+docker compose logs -f publisher
+```
+
+O publisher deverá registrar quatro tópicos e publicar quatro valores a cada ciclo.
+
+Exemplo:
+
+```text
+PUBLISH MQTT-SN topico=iot/sala/temperatura valor=23.0 °C
+PUBLISH MQTT-SN topico=iot/sala/umidade valor=45 %
+PUBLISH MQTT-SN topico=iot/sala/presenca valor=ON
+PUBLISH MQTT-SN topico=iot/sala/pressao valor=1005.0 hPa
+```
+
+## 8.2. Verificar o gateway
+
+Execute:
+
+```bash
+docker compose logs -f gateway
+```
+
+Procure mensagens relacionadas ao novo tópico:
+
+```text
+iot/sala/pressao
+```
+
+Isso permitirá verificar se o gateway recebeu e processou a publicação MQTT-SN.
+
+## 8.3. Verificar o Mosquitto
+
+Execute:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 -t 'iot/#' -v
+```
+
+O resultado esperado será semelhante a:
+
+```text
+iot/sala/temperatura 23.0
+iot/sala/umidade 45
+iot/sala/presenca ON
+iot/sala/pressao 1005.0
+```
+
+Para acompanhar somente o novo sensor:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 -t 'iot/sala/pressao' -v
+```
+
+## 8.4. Verificar o Home Assistant
+
+Acesse:
+
+```text
+http://localhost:8123
+```
+
+Na integração MQTT, procure a entidade:
+
+```text
+Pressão Atmosférica MQTT-SN
+```
+
+O valor deverá ser apresentado em hectopascais:
+
+```text
+1005.0 hPa
+```
+
+Se a entidade não aparecer, verifique se a integração MQTT está conectada e se o gateway publicou a configuração MQTT Discovery.
+
+Para visualizar essa configuração diretamente no Mosquitto:
+
+```bash
+docker compose exec mosquitto \
+  mosquitto_sub -h 127.0.0.1 \
+  -t 'homeassistant/sensor/lab_mqttsn_pressao/config' \
+  -C 1 -v
+```
+
+### Observação sobre os testes automatizados
+
+Os testes originais foram desenvolvidos para três sensores.
+
+Após adicionar a pressão atmosférica, o arquivo `tests/test_udp_end_to_end.py` deverá ser adaptado para validar quatro registros e quatro publicações por ciclo, caso o teste utilize essas quantidades fixas.
+
+---
+
+# 9. Encerramento do ambiente
+
+Para interromper e remover os contêineres e as redes criadas pelo Compose, execute:
+
+```bash
+docker compose down
+```
+
+Para iniciar novamente:
+
+```bash
+docker compose up -d
+```
+
+Para remover também os volumes e as imagens utilizadas pelo projeto:
+
+```bash
+docker compose down -v --rmi all
+```
+
+**Atenção:** a opção `-v` remove volumes Docker, incluindo o volume persistente utilizado pelo Mosquitto. Utilize esse comando somente quando desejar limpar os dados armazenados nesses volumes.
+
+---
+
+# 10. Resultado esperado
+
+Após a execução da atividade extra, o laboratório passará a simular quatro sensores:
+
+| Sensor | Tópico MQTT-SN/MQTT | Unidade ou estado |
+|---|---|---|
+| Temperatura | `iot/sala/temperatura` | °C |
+| Umidade | `iot/sala/umidade` | % |
+| Presença | `iot/sala/presenca` | ON/OFF |
+| Pressão atmosférica | `iot/sala/pressao` | hPa |
+
+O publisher continuará utilizando MQTT-SN sobre UDP para transmitir os dados ao gateway.
+
+O gateway será responsável por interpretar as mensagens MQTT-SN e encaminhá-las ao broker Mosquitto utilizando MQTT.
+
+Por fim, o Home Assistant permitirá visualizar os quatro sensores e acompanhar as alterações dos valores simulados.

@@ -1,0 +1,162 @@
+###Tutorial passo a passo para subir o Ambiente: ###
+
+git clone https://github.com/pedro-rodriguesalves/atividade-homeassistant.git
+cd projeto-iot-mqttsn-3-sensores/iot-mqttsn-homeassistant
+
+Ver se o docker e o docker compose estão baixados, se não estiver tem que baixar:
+
+docker --version
+docker compose version
+
+Ver se o mosquitto já existe na máquina, se tiver dê o segundo comando:
+
+sudo systemctl status mosquitto
+sudo systemctl stop mosquitto
+
+
+Iniciar o cenário:
+
+docker compose up -d --build
+
+
+Acessar o Home assistant:
+
+1 - Abra http://localhost:8123 no navegador do notebook que roda o Docker.
+2 - Acesse Configurações > Dispositivos e serviços > Adicionar integração > MQTT, conecte ao broker mosquitto na porta 1883, sem usuário e sem senha (somente para laboratório).
+3 - Confirme que a descoberta MQTT (MQTT Discovery) está habilitada.
+4 - Acesse o MQTT e a aba de Sensores.
+
+Verificar as mensagens do publisher:
+
+docker compose logs -f publisher
+
+Verificar as mensagens do gateway:
+
+docker compose logs -f gateway
+
+Verificar o broker:
+
+docker compose exec mosquitto mosquitto_sub -h 127.0.0.1 -t 'iot/#' -v
+docker compose exec mosquitto mosquitto_sub -h 127.0.0.1 -t 'iot/sala/presença' -v # De um tópico específico.
+
+Análise no wireshark;
+
+Filtro:
+
+udp.port == 1884 or tcp.port == 1883 or tcp.port == 8123
+
+Ver mensagens MQTT-SN:
+
+Acessar a aba superior com o nome Analyze.
+Acessar a aba Decode as.
+Adicionar o filtro Field(udp port) - Port(1884) - Current(MQTT-SN)
+
+
+Atividade Extra: Adicione um sensor de Pressão atmosférica:
+
+nano compose.yaml 
+
+localize o serviço publisher.
+
+environment:
+  GATEWAY_HOST: gateway
+  GATEWAY_PORT: "1884"
+  CLIENT_ID: sensores-sala-01
+  MQTT_TOPIC: iot/sala/temperatura
+  HUMIDITY_TOPIC: iot/sala/umidade
+  PRESENCE_TOPIC: iot/sala/presenca
+  INTERVAL: "3"
+  COUNT: "0"
+  
+  
+ adicione o pressure_topic: iot/sala/pressao
+ 
+ 
+ nano publisher/publisher.py
+ 
+ localize a função def run () -> None:
+ 
+ procure 
+ 
+ temp_topic = os.getenv("MQTT_TOPIC", "iot/sala/temperatura")
+humidity_topic = os.getenv("HUMIDITY_TOPIC", "iot/sala/umidade")
+presence_topic = os.getenv("PRESENCE_TOPIC", "iot/sala/presenca")
+
+topics = [temp_topic, humidity_topic, presence_topic]
+
+adicione 
+
+pressure_topic = os.getenv("PRESSURE_TOPIC", "iot/sala/pressao")
+pressure_topic
+
+mudar o 
+
+if len(set(topics)) != len(topics):
+    raise ValueError("Os tres topicos MQTT-SN devem ser diferentes")
+    
+
+adicionar variável:
+
+pressure = 1005.0 + 0.8 * (seq % 12)
+
+
+publicar o novo sensor:
+
+send_value(
+    sock,
+    address,
+    pressure_topic,
+    topic_ids[pressure_topic],
+    f"{pressure:.1f}",
+    " hPa"
+)
+
+no final da run()
+
+LOG.info(
+    "Publisher finalizado; ciclos=%s; publicacoes=%s",
+    seq,
+    seq * len(topics)
+)
+
+
+nano gateway/gateway.ini
+
+pressure_state_topic = iot/sala/pressao
+pressure_discovery_topic = homeassistant/sensor/lab_mqttsn_pressao/config
+
+
+nano gateway/gateway.py
+
+procurar a função mqtt_on_connect.. e entities
+
+subir 
+
+(
+    mqtt_cfg["pressure_discovery_topic"],
+    {
+        "name": "Pressão Atmosférica MQTT-SN",
+        "unique_id": "laboratorio_pressao_mqttsn_01",
+        "state_topic": mqtt_cfg["pressure_state_topic"],
+        "device_class": "atmospheric_pressure",
+        "state_class": "measurement",
+        "unit_of_measurement": "hPa",
+    },
+),
+
+Localizar o log.info e colocar 
+
+LOG.info(
+    "MQTT conectado. Discovery de temperatura, "
+    "umidade, presenca e pressao publicado"
+)
+
+
+Se o cenário antigo estiver ativo:
+
+docker compose up -d --build --force-recreate gateway publisher
+
+
+
+
+
