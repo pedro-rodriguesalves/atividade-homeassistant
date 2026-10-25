@@ -1,0 +1,17 @@
+test_blocks_discovery_topic_spoof (test_lab.GatewayTest.test_blocks_discovery_topic_spoof) ... REGISTER rejeitado de=('127.0.0.1', 40000) topico='homeassistant/sensor/foo/config'
+ok
+test_no_register_from_unknown_client (test_lab.GatewayTest.test_no_register_from_unknown_client) ... REGISTER rejeitado de=('127.0.0.1', 40000) topico='iot/sala/temperatura'
+ok
+test_ping_and_disconnect (test_lab.GatewayTest.test_ping_and_disconnect) ... ok
+test_qos1_not_supported (test_lab.GatewayTest.test_qos1_not_supported) ... PUBLISH rejeitado cliente=('127.0.0.1', 40000) topicId=1 flags=0x20
+ok
+test_register_publish_pipeline (test_lab.GatewayTest.test_register_publish_pipeline) ... ok
+test_extended_frame (test_lab.ProtocolTest.test_extended_frame) ... ok
+test_malformed_length (test_lab.ProtocolTest.test_malformed_length) ... ok
+test_short_frame (test_lab.ProtocolTest.test_short_frame) ... ok
+test_three_real_udp_publications (test_udp_end_to_end.UdpIntegrationTest.test_three_real_udp_publications) ... ok
+
+----------------------------------------------------------------------
+Ran 9 tests in 1.911s
+
+OK

@@ -1,6 +1,6 @@
+.git
 __pycache__
 *.pyc
-.git
 .pytest_cache
 homeassistant/config/.storage
 homeassistant/config/home-assistant_v2.db*

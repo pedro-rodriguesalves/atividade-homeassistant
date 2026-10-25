@@ -6,6 +6,7 @@ services:
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto_data:/mosquitto/data
+    # Porta 1883 apenas na rede interna do Compose; evita conflito com Mosquitto do host.
     healthcheck:
       test: ["CMD", "mosquitto_pub", "-h", "127.0.0.1", "-p", "1883", "-t", "lab/health", "-m", "ok"]
       interval: 5s
@@ -40,8 +41,7 @@ services:
       HUMIDITY_TOPIC: iot/sala/umidade
       PRESENCE_TOPIC: iot/sala/presenca
       INTERVAL: "3"
-      COUNT: "0"
-      PING_EVERY: "10"
+      COUNT: "0"  # 0 = publicar indefinidamente
     restart: unless-stopped
 
   subscriber:
