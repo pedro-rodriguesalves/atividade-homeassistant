@@ -245,12 +245,7 @@ humidity_topic = os.getenv("HUMIDITY_TOPIC", "iot/sala/umidade")
 presence_topic = os.getenv("PRESENCE_TOPIC", "iot/sala/presenca")
 pressure_topic = os.getenv("PRESSURE_TOPIC", "iot/sala/pressao")
 
-topics = [
-    temp_topic,
-    humidity_topic,
-    presence_topic,
-    pressure_topic
-]
+topics = [temp_topic, humidity_topic, presence_topic, pressure_topic]
 ```
 
 Agora o publisher registrará quatro tópicos MQTT-SN.
