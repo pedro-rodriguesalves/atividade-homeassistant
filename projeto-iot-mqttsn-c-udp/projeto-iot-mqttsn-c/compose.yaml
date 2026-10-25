@@ -1,0 +1,70 @@
+name: laboratorio-iot
+
+services:
+  mosquitto:
+    image: eclipse-mosquitto:2
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto_data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_pub", "-h", "127.0.0.1", "-p", "1883", "-t", "lab/health", "-m", "ok"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 5s
+    restart: unless-stopped
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:1884:1884/udp"
+    restart: unless-stopped
+
+  publisher:
+    build:
+      context: .
+      dockerfile: publisher/Dockerfile
+    depends_on:
+      gateway:
+        condition: service_started
+    environment:
+      GATEWAY_HOST: gateway
+      GATEWAY_PORT: "1884"
+      CLIENT_ID: sensores-sala-01
+      MQTT_TOPIC: iot/sala/temperatura
+      HUMIDITY_TOPIC: iot/sala/umidade
+      PRESENCE_TOPIC: iot/sala/presenca
+      INTERVAL: "3"
+      COUNT: "0"
+      PING_EVERY: "10"
+    restart: unless-stopped
+
+  subscriber:
+    image: eclipse-mosquitto:2
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    entrypoint: ["mosquitto_sub"]
+    command: ["-h", "mosquitto", "-p", "1883", "-t", "iot/#", "-v"]
+    restart: unless-stopped
+
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+    volumes:
+      - ./homeassistant/config:/config
+    environment:
+      TZ: America/Fortaleza
+    ports:
+      - "127.0.0.1:8123:8123/tcp"
+    restart: unless-stopped
+
+volumes:
+  mosquitto_data:
