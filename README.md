@@ -159,19 +159,7 @@ Filtro:
 
 # 6. Atividade extra — Adicionar um sensor de pressão atmosférica
 
-Nesta atividade, será adicionado um quarto sensor ao laboratório, responsável por simular valores de pressão atmosférica.
-
-O novo sensor utilizará:
-
-| Propriedade | Valor |
-|---|---|
-| Sensor | Pressão atmosférica |
-| Tópico | `iot/sala/pressao` |
-| Unidade | hPa |
-| Protocolo | MQTT-SN sobre UDP |
-| Intervalo | 3 segundos |
-
-Para realizar a integração, serão modificados quatro arquivos:
+Nesta atividade, será adicionado um quarto sensor ao laboratório, responsável por simular valores de pressão atmosférica. Para realizar a integração, serão modificados quatro arquivos:
 
 1. `compose.yaml`
 2. `publisher/publisher.py`
@@ -319,19 +307,8 @@ Localize as chamadas existentes da função `send_value()`.
 Após a publicação do sensor de presença, adicione:
 
 ```python
-send_value(
-    sock,
-    address,
-    pressure_topic,
-    topic_ids[pressure_topic],
-    f"{pressure:.1f}",
-    " hPa"
-)
+send_value(sock, address, pressure_topic, topic_ids[pressure_topic], f"{pressure:.1f}"," hPa")
 ```
-
-Essa função enviará uma mensagem MQTT-SN contendo o valor simulado da pressão atmosférica.
-
-O tópico deverá ter sido registrado anteriormente para que o publisher possua seu `TopicId`.
 
 ### Etapa 5 — Atualizar a contagem de publicações
 
@@ -340,11 +317,7 @@ No final da função `run()`, localize o registro da quantidade de publicações
 Substitua a contagem fixa por:
 
 ```python
-LOG.info(
-    "Publisher finalizado; ciclos=%s; publicacoes=%s",
-    seq,
-    seq * len(topics)
-)
+LOG.info("Publisher finalizado; ciclos=%s; publicacoes=%s", seq, seq * len(topics))
 ```
 
 Dessa maneira, o programa calculará automaticamente a quantidade de publicações com base no número de sensores.
@@ -363,20 +336,8 @@ Na seção `[mqtt]`, adicione:
 
 ```ini
 pressure_state_topic = iot/sala/pressao
-```
-
-Esse campo identifica o tópico MQTT que receberá os valores de pressão atmosférica.
-
-Também adicione:
-
-```ini
 pressure_discovery_topic = homeassistant/sensor/lab_mqttsn_pressao/config
 ```
-
-Esse campo identifica o tópico utilizado para anunciar a nova entidade ao Home Assistant.
-
-Não será necessário modificar a seção `[mqttsn]`, pois o prefixo `iot/` já permite o registro do novo tópico.
-
 ---
 
 ## 6.4. Modificar o arquivo `gateway/gateway.py`
@@ -437,10 +398,7 @@ Localize a mensagem de log que informa a publicação das configurações MQTT D
 Substitua por:
 
 ```python
-LOG.info(
-    "MQTT conectado. Discovery de temperatura, "
-    "umidade, presenca e pressao publicado"
-)
+LOG.info("MQTT conectado. Discovery de temperatura, umidade, presenca e pressao publicado")
 ```
 
 Com isso, o gateway passará a anunciar quatro entidades ao Home Assistant.
@@ -461,7 +419,7 @@ Em seguida, reconstrua e recrie o publisher e o gateway:
 docker compose up -d --build --force-recreate gateway publisher
 ```
 
-# 9. Encerramento do ambiente
+# 8. Encerramento do ambiente
 
 Para interromper e remover os contêineres e as redes criadas pelo Compose, execute:
 
