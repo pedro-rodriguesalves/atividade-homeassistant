@@ -1,8 +1,0 @@
-Nesta pasta devem ser colocadas evidencias REAIS da execucao do projeto:
-
-1. containers.txt — saida de docker compose ps
-2. logs.txt — saida de docker compose logs
-3. homeassistant.png — print da entidade MQTT-SN no painel
-4. captura-mqttsn-mqtt.pcap — captura opcional com tcpdump
-
-O projeto nao inclui evidencias fabricadas.
